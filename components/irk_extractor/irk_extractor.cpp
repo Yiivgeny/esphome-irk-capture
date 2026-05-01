@@ -25,13 +25,18 @@ class BLECharacteristicAccess : public esp32_ble_server::BLECharacteristic {
   }
 };
 
-void IrkExtractorSwitch::write_state(bool state) { this->parent_->set_enabled(state); }
+void IrkExtractorEnrollSwitch::write_state(bool state) { this->parent_->set_enabled(state); }
+
+void IrkExtractorVisibleSwitch::write_state(bool state) { this->parent_->set_visible(state); }
 
 void IrkExtractor::setup() {
   this->ensure_service_();
   this->configure_security_profile_();
   this->sync_advertising_mode_();
 
+  if (this->visible_switch_ != nullptr) {
+    this->visible_switch_->publish_state(this->visible_);
+  }
   if (this->enroll_switch_ != nullptr) {
     this->enroll_switch_->publish_state(this->enabled_);
   }
@@ -45,8 +50,10 @@ void IrkExtractor::loop() {
 
 void IrkExtractor::dump_config() {
   ESP_LOGCONFIG(TAG, "IRK Extractor:");
+  ESP_LOGCONFIG(TAG, "  Visible: %s", YESNO(this->visible_));
   ESP_LOGCONFIG(TAG, "  Enabled: %s", YESNO(this->enabled_));
   ESP_LOGCONFIG(TAG, "  Auto disconnect: %s", YESNO(this->auto_disconnect_));
+  LOG_SWITCH("  ", "Visible Switch", this->visible_switch_);
   LOG_SWITCH("  ", "Enroll Switch", this->enroll_switch_);
 }
 
@@ -61,29 +68,56 @@ void IrkExtractor::gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
   this->handle_gatts_event_(event, gatts_if, param);
 }
 
-void IrkExtractor::set_enabled(bool enabled) {
-  if (this->enabled_ == enabled) {
+void IrkExtractor::set_enabled(bool enabled) { this->apply_state_(this->visible_ || enabled, enabled); }
+
+void IrkExtractor::set_visible(bool visible) { this->apply_state_(visible, visible ? this->enabled_ : false); }
+
+void IrkExtractor::apply_state_(bool visible, bool enabled) {
+  if (enabled && !visible) {
+    visible = true;
+  }
+
+  if (this->visible_ == visible && this->enabled_ == enabled) {
+    if (this->visible_switch_ != nullptr) {
+      this->visible_switch_->publish_state(visible);
+    }
     if (this->enroll_switch_ != nullptr) {
       this->enroll_switch_->publish_state(enabled);
     }
     return;
   }
 
-  this->enabled_ = enabled;
-  ESP_LOGI(TAG, "%s IRK enrollment mode", enabled ? "Enabling" : "Disabling");
+  const bool visible_changed = this->visible_ != visible;
+  const bool enabled_changed = this->enabled_ != enabled;
+  const bool should_disconnect = (!visible && this->visible_) || (!enabled && this->enabled_);
 
-  if (enabled) {
+  if (visible_changed) {
+    ESP_LOGI(TAG, "%s BLE visible mode", visible ? "Enabling" : "Disabling");
+  }
+  if (enabled_changed) {
+    ESP_LOGI(TAG, "%s IRK enrollment mode", enabled ? "Enabling" : "Disabling");
+  }
+
+  if (enabled && !this->enabled_) {
     this->emitted_irks_.clear();
-  } else {
+  }
+  if (!enabled) {
     this->pending_irks_by_peer_.clear();
-    if (this->auto_disconnect_) {
-      this->disconnect_all_clients_();
-    }
+  }
+
+  this->visible_ = visible;
+  this->enabled_ = enabled;
+
+  if (should_disconnect && this->auto_disconnect_) {
+    this->disconnect_all_clients_();
   }
 
   this->sync_advertising_mode_();
   this->sync_server_state_();
 
+  if (this->visible_switch_ != nullptr) {
+    this->visible_switch_->publish_state(visible);
+  }
   if (this->enroll_switch_ != nullptr) {
     this->enroll_switch_->publish_state(enabled);
   }
@@ -141,7 +175,7 @@ void IrkExtractor::sync_server_state_() {
     return;
   }
 
-  if (this->enabled_) {
+  if (this->visible_) {
     if (!this->service_started_ && !this->heart_rate_service_->is_running() && !this->heart_rate_service_->is_starting()) {
       this->heart_rate_service_->start();
       this->service_started_ = true;
@@ -163,8 +197,8 @@ void IrkExtractor::sync_advertising_mode_() {
     return;
   }
 
-  ble->advertising_set_service_data_and_name({}, this->enabled_);
-  ESP_LOGI(TAG, "BLE advertising name %s in enroll mode", this->enabled_ ? "enabled" : "disabled");
+  ble->advertising_set_service_data_and_name({}, this->visible_);
+  ESP_LOGI(TAG, "BLE advertising name %s in visible mode", this->visible_ ? "enabled" : "disabled");
 }
 
 void IrkExtractor::maybe_notify_heart_rate_() {
@@ -363,12 +397,7 @@ void IrkExtractor::emit_irk_(const std::string &irk, const std::string &address,
     }
   }
 
-  this->enabled_ = false;
-  this->sync_advertising_mode_();
-  this->sync_server_state_();
-  if (this->enroll_switch_ != nullptr) {
-    this->enroll_switch_->publish_state(false);
-  }
+  this->apply_state_(this->visible_, false);
 }
 
 }  // namespace esphome::irk_extractor

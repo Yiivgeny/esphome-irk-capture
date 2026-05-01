@@ -24,9 +24,18 @@ class IrkExtractor;
 
 class IrkFoundTrigger : public Trigger<std::string, std::string> {};
 
-class IrkExtractorSwitch : public switch_::Switch {
+class IrkExtractorEnrollSwitch : public switch_::Switch {
  public:
-  explicit IrkExtractorSwitch(IrkExtractor *parent) : parent_(parent) {}
+  explicit IrkExtractorEnrollSwitch(IrkExtractor *parent) : parent_(parent) {}
+
+ protected:
+  void write_state(bool state) override;
+  IrkExtractor *parent_;
+};
+
+class IrkExtractorVisibleSwitch : public switch_::Switch {
+ public:
+  explicit IrkExtractorVisibleSwitch(IrkExtractor *parent) : parent_(parent) {}
 
  protected:
   void write_state(bool state) override;
@@ -43,13 +52,17 @@ class IrkExtractor : public Component, public Parented<esp32_ble_server::BLEServ
   void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
   void set_auto_disconnect(bool auto_disconnect) { this->auto_disconnect_ = auto_disconnect; }
-  void set_enroll_switch(IrkExtractorSwitch *enroll_switch) { this->enroll_switch_ = enroll_switch; }
+  void set_enroll_switch(IrkExtractorEnrollSwitch *enroll_switch) { this->enroll_switch_ = enroll_switch; }
+  void set_visible_switch(IrkExtractorVisibleSwitch *visible_switch) { this->visible_switch_ = visible_switch; }
   void add_on_irk_trigger(IrkFoundTrigger *trigger) { this->irk_triggers_.push_back(trigger); }
 
   void set_enabled(bool enabled);
   bool is_enabled() const { return this->enabled_; }
+  void set_visible(bool visible);
+  bool is_visible() const { return this->visible_; }
 
  protected:
+  void apply_state_(bool visible, bool enabled);
   void ensure_service_();
   void configure_security_profile_();
   void sync_server_state_();
@@ -73,6 +86,7 @@ class IrkExtractor : public Component, public Parented<esp32_ble_server::BLEServ
     std::string identity_address;
   };
 
+  bool visible_{false};
   bool enabled_{false};
   bool auto_disconnect_{true};
   bool security_profile_configured_{false};
@@ -82,7 +96,8 @@ class IrkExtractor : public Component, public Parented<esp32_ble_server::BLEServ
   esp32_ble_server::BLEService *heart_rate_service_{nullptr};
   esp32_ble_server::BLECharacteristic *heart_rate_measurement_{nullptr};
   esp32_ble_server::BLEDescriptor *cccd_{nullptr};
-  IrkExtractorSwitch *enroll_switch_{nullptr};
+  IrkExtractorEnrollSwitch *enroll_switch_{nullptr};
+  IrkExtractorVisibleSwitch *visible_switch_{nullptr};
   std::vector<IrkFoundTrigger *> irk_triggers_;
 
   std::unordered_map<std::string, uint16_t> conn_ids_by_peer_;

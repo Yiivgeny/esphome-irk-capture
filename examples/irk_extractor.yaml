@@ -41,6 +41,8 @@ irk_extractor:
   id: irk_extractor_component
   ble_id: ble_core
   ble_server_id: ble_server
+  visible_switch:
+    name: "BLE Visible"
   enroll_switch:
     name: "BLE Enroll"
   on_irk:
