@@ -81,7 +81,6 @@ irk_capture:
 Behavior:
 
 - turning the `enroll_switch` on starts advertising a connectable BLE service
-- turning the optional `visible_switch` on exposes the BLE service without enabling IRK enrollment
 - on incoming connection, the component requests BLE encryption and bonding
 - when the peer shares its Identity Resolving Key, `on_irk` fires with:
   - `irk`: 32-char lowercase hex IRK

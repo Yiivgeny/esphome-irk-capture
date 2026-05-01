@@ -33,15 +33,6 @@ class IrkCaptureEnrollSwitch : public switch_::Switch {
   IrkCapture *parent_;
 };
 
-class IrkCaptureVisibleSwitch : public switch_::Switch {
- public:
-  explicit IrkCaptureVisibleSwitch(IrkCapture *parent) : parent_(parent) {}
-
- protected:
-  void write_state(bool state) override;
-  IrkCapture *parent_;
-};
-
 class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer> {
  public:
   void setup() override;
@@ -53,16 +44,12 @@ class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer
 
   void set_auto_disconnect(bool auto_disconnect) { this->auto_disconnect_ = auto_disconnect; }
   void set_enroll_switch(IrkCaptureEnrollSwitch *enroll_switch) { this->enroll_switch_ = enroll_switch; }
-  void set_visible_switch(IrkCaptureVisibleSwitch *visible_switch) { this->visible_switch_ = visible_switch; }
   void add_on_irk_trigger(IrkFoundTrigger *trigger) { this->irk_triggers_.push_back(trigger); }
 
   void set_enabled(bool enabled);
   bool is_enabled() const { return this->enabled_; }
-  void set_visible(bool visible);
-  bool is_visible() const { return this->visible_; }
 
  protected:
-  void apply_state_(bool visible, bool enabled);
   void ensure_service_();
   void configure_security_profile_();
   void sync_server_state_();
@@ -86,7 +73,6 @@ class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer
     std::string identity_address;
   };
 
-  bool visible_{false};
   bool enabled_{false};
   bool auto_disconnect_{true};
   bool security_profile_configured_{false};
@@ -97,7 +83,6 @@ class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer
   esp32_ble_server::BLECharacteristic *heart_rate_measurement_{nullptr};
   esp32_ble_server::BLEDescriptor *cccd_{nullptr};
   IrkCaptureEnrollSwitch *enroll_switch_{nullptr};
-  IrkCaptureVisibleSwitch *visible_switch_{nullptr};
   std::vector<IrkFoundTrigger *> irk_triggers_;
 
   std::unordered_map<std::string, uint16_t> conn_ids_by_peer_;

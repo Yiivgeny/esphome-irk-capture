@@ -13,7 +13,6 @@ CONF_BLE_ID = "ble_id"
 CONF_BLE_SERVER_ID = "ble_server_id"
 CONF_ENROLL_SWITCH = "enroll_switch"
 CONF_ON_IRK = "on_irk"
-CONF_VISIBLE_SWITCH = "visible_switch"
 
 irk_capture_ns = cg.esphome_ns.namespace("irk_capture")
 IrkCapture = irk_capture_ns.class_(
@@ -23,9 +22,6 @@ IrkCapture = irk_capture_ns.class_(
 )
 IrkCaptureEnrollSwitch = irk_capture_ns.class_(
     "IrkCaptureEnrollSwitch", switch.Switch
-)
-IrkCaptureVisibleSwitch = irk_capture_ns.class_(
-    "IrkCaptureVisibleSwitch", switch.Switch
 )
 IrkFoundTrigger = irk_capture_ns.class_(
     "IrkFoundTrigger", automation.Trigger.template(cg.std_string, cg.std_string)
@@ -40,12 +36,6 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_ENROLL_SWITCH): switch.switch_schema(
             IrkCaptureEnrollSwitch,
             icon="mdi:bluetooth-connect",
-            entity_category=ENTITY_CATEGORY_CONFIG,
-            default_restore_mode="RESTORE_DEFAULT_OFF",
-        ),
-        cv.Optional(CONF_VISIBLE_SWITCH): switch.switch_schema(
-            IrkCaptureVisibleSwitch,
-            icon="mdi:bluetooth-settings",
             entity_category=ENTITY_CATEGORY_CONFIG,
             default_restore_mode="RESTORE_DEFAULT_OFF",
         ),
@@ -73,10 +63,6 @@ async def to_code(config):
     if CONF_ENROLL_SWITCH in config:
         sw = await switch.new_switch(config[CONF_ENROLL_SWITCH], var)
         cg.add(var.set_enroll_switch(sw))
-
-    if CONF_VISIBLE_SWITCH in config:
-        sw = await switch.new_switch(config[CONF_VISIBLE_SWITCH], var)
-        cg.add(var.set_visible_switch(sw))
 
     for conf in config.get(CONF_ON_IRK, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
