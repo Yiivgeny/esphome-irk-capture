@@ -30,7 +30,7 @@ void IrkCaptureEnrollSwitch::write_state(bool state) { this->parent_->set_enable
 void IrkCapture::setup() {
   this->ensure_service_();
   this->configure_security_profile_();
-  this->sync_advertising_mode_();
+  this->request_advertising_mode_sync_();
 
   bool restored_enabled = this->enabled_;
 
@@ -47,12 +47,14 @@ void IrkCapture::setup() {
 void IrkCapture::loop() {
   this->configure_security_profile_();
   this->sync_server_state_();
+  this->maybe_sync_advertising_mode_();
   this->maybe_notify_heart_rate_();
 }
 
 void IrkCapture::dump_config() {
   ESP_LOGCONFIG(TAG, "IRK Capture:");
   ESP_LOGCONFIG(TAG, "  Enabled: %s", YESNO(this->enabled_));
+  ESP_LOGCONFIG(TAG, "  Auto disable: %s", YESNO(this->auto_disable_));
   ESP_LOGCONFIG(TAG, "  Auto disconnect: %s", YESNO(this->auto_disconnect_));
   LOG_SWITCH("  ", "Enroll Switch", this->enroll_switch_);
 }
@@ -70,6 +72,8 @@ void IrkCapture::gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t g
 
 void IrkCapture::set_enabled(bool enabled) {
   if (this->enabled_ == enabled) {
+    this->request_advertising_mode_sync_();
+    this->sync_server_state_();
     if (this->enroll_switch_ != nullptr) {
       this->enroll_switch_->publish_state(enabled);
     }
@@ -88,7 +92,7 @@ void IrkCapture::set_enabled(bool enabled) {
     }
   }
 
-  this->sync_advertising_mode_();
+  this->request_advertising_mode_sync_();
   this->sync_server_state_();
 
   if (this->enroll_switch_ != nullptr) {
@@ -152,11 +156,57 @@ void IrkCapture::sync_server_state_() {
     if (!this->service_started_ && !this->heart_rate_service_->is_running() && !this->heart_rate_service_->is_starting()) {
       this->heart_rate_service_->start();
       this->service_started_ = true;
+      this->service_state_transition_pending_ = true;
     }
   } else if (this->service_started_) {
     this->heart_rate_service_->stop();
     this->service_started_ = false;
+    this->service_state_transition_pending_ = true;
   }
+}
+
+void IrkCapture::request_advertising_mode_sync_() { this->advertising_mode_dirty_ = true; }
+
+bool IrkCapture::is_service_state_settled_() const {
+  if (this->heart_rate_service_ == nullptr || this->parent_ == nullptr || !this->parent_->is_running()) {
+    return false;
+  }
+
+  if (this->service_state_transition_pending_) {
+    return false;
+  }
+
+  if (this->enabled_) {
+    return this->service_started_ && this->heart_rate_service_->is_running();
+  }
+
+  return !this->service_started_ && !this->heart_rate_service_->is_running() && !this->heart_rate_service_->is_starting();
+}
+
+void IrkCapture::maybe_sync_advertising_mode_() {
+  if (!this->advertising_mode_dirty_) {
+    return;
+  }
+
+  auto *server = this->get_parent();
+  if (server == nullptr) {
+    return;
+  }
+
+  auto *ble = server->get_parent();
+  if (ble == nullptr || !ble->is_active() || !this->is_service_state_settled_()) {
+    return;
+  }
+
+  if (this->advertising_mode_initialized_ && this->advertising_name_enabled_ == this->enabled_) {
+    this->advertising_mode_dirty_ = false;
+    return;
+  }
+
+  this->sync_advertising_mode_();
+  this->advertising_mode_initialized_ = true;
+  this->advertising_name_enabled_ = this->enabled_;
+  this->advertising_mode_dirty_ = false;
 }
 
 void IrkCapture::sync_advertising_mode_() {
@@ -217,6 +267,18 @@ void IrkCapture::disconnect_all_clients_() {
 
 void IrkCapture::handle_gatts_event_(esp_gatts_cb_event_t event, esp_gatt_if_t, esp_ble_gatts_cb_param_t *param) {
   switch (event) {
+    case ESP_GATTS_START_EVT:
+      if (this->heart_rate_service_ != nullptr && param->start.service_handle == this->heart_rate_service_->get_handle()) {
+        this->service_state_transition_pending_ = false;
+        this->request_advertising_mode_sync_();
+      }
+      break;
+    case ESP_GATTS_STOP_EVT:
+      if (this->heart_rate_service_ != nullptr && param->stop.service_handle == this->heart_rate_service_->get_handle()) {
+        this->service_state_transition_pending_ = false;
+        this->request_advertising_mode_sync_();
+      }
+      break;
     case ESP_GATTS_CONNECT_EVT: {
       if (!this->enabled_) {
         break;
@@ -370,7 +432,9 @@ void IrkCapture::emit_irk_(const std::string &irk, const std::string &address, c
     }
   }
 
-  this->set_enabled(false);
+  if (this->auto_disable_) {
+    this->set_enabled(false);
+  }
 }
 
 }  // namespace esphome::irk_capture

@@ -2,13 +2,14 @@ import esphome.codegen as cg
 from esphome import automation
 from esphome.components import esp32_ble, esp32_ble_server, switch
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_TRIGGER_ID, ENTITY_CATEGORY_CONFIG
+from esphome.const import CONF_ID, CONF_TRIGGER_ID
 
 AUTO_LOAD = ["esp32_ble", "esp32_ble_server", "switch"]
 DEPENDENCIES = ["esp32"]
-CODEOWNERS = ["@evgeny"]
+CODEOWNERS = ["@Yiivgeny"]
 
 CONF_AUTO_DISCONNECT = "auto_disconnect"
+CONF_AUTO_DISABLE = "auto_disable"
 CONF_BLE_ID = "ble_id"
 CONF_BLE_SERVER_ID = "ble_server_id"
 CONF_ENROLL_SWITCH = "enroll_switch"
@@ -32,11 +33,11 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(): cv.declare_id(IrkCapture),
         cv.GenerateID(CONF_BLE_ID): cv.use_id(esp32_ble.ESP32BLE),
         cv.GenerateID(CONF_BLE_SERVER_ID): cv.use_id(esp32_ble_server.BLEServer),
+        cv.Optional(CONF_AUTO_DISABLE, default=True): cv.boolean,
         cv.Optional(CONF_AUTO_DISCONNECT, default=True): cv.boolean,
         cv.Optional(CONF_ENROLL_SWITCH): switch.switch_schema(
             IrkCaptureEnrollSwitch,
             icon="mdi:bluetooth-connect",
-            entity_category=ENTITY_CATEGORY_CONFIG,
             default_restore_mode="RESTORE_DEFAULT_OFF",
         ),
         cv.Optional(CONF_ON_IRK): automation.validate_automation(
@@ -54,6 +55,7 @@ async def to_code(config):
 
     parent = await cg.get_variable(config[CONF_BLE_SERVER_ID])
     cg.add(var.set_parent(parent))
+    cg.add(var.set_auto_disable(config[CONF_AUTO_DISABLE]))
     cg.add(var.set_auto_disconnect(config[CONF_AUTO_DISCONNECT]))
 
     ble_parent = await cg.get_variable(config[CONF_BLE_ID])

@@ -85,7 +85,9 @@ Behavior:
 - when the peer shares its Identity Resolving Key, `on_irk` fires with:
   - `irk`: 32-char lowercase hex IRK
   - `address`: identity/static BLE address when available
-- after success, enrollment mode turns itself off and the client is disconnected
+- after success, enrollment mode turns itself off and the client is disconnected by default
+- `auto_disable` controls whether enroll mode turns itself off after a successful IRK capture
+- `auto_disconnect` controls whether the active BLE client is disconnected automatically
 
 ## Project layout
 

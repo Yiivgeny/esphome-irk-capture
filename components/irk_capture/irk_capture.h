@@ -43,6 +43,7 @@ class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer
   void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
   void set_auto_disconnect(bool auto_disconnect) { this->auto_disconnect_ = auto_disconnect; }
+  void set_auto_disable(bool auto_disable) { this->auto_disable_ = auto_disable; }
   void set_enroll_switch(IrkCaptureEnrollSwitch *enroll_switch) { this->enroll_switch_ = enroll_switch; }
   void add_on_irk_trigger(IrkFoundTrigger *trigger) { this->irk_triggers_.push_back(trigger); }
 
@@ -53,6 +54,9 @@ class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer
   void ensure_service_();
   void configure_security_profile_();
   void sync_server_state_();
+  void request_advertising_mode_sync_();
+  void maybe_sync_advertising_mode_();
+  bool is_service_state_settled_() const;
   void sync_advertising_mode_();
   void maybe_notify_heart_rate_();
   void update_connection_params_(const esp_bd_addr_t address);
@@ -74,9 +78,14 @@ class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer
   };
 
   bool enabled_{false};
+  bool auto_disable_{true};
   bool auto_disconnect_{true};
   bool security_profile_configured_{false};
   bool service_started_{false};
+  bool service_state_transition_pending_{false};
+  bool advertising_mode_dirty_{true};
+  bool advertising_mode_initialized_{false};
+  bool advertising_name_enabled_{false};
   uint32_t last_heart_rate_notify_ms_{0};
 
   esp32_ble_server::BLEService *heart_rate_service_{nullptr};
