@@ -10,7 +10,6 @@ CODEOWNERS = ["@evgeny"]
 
 CONF_AUTO_DISCONNECT = "auto_disconnect"
 CONF_BLE_ID = "ble_id"
-CONF_BLE_NAME = "ble_name"
 CONF_BLE_SERVER_ID = "ble_server_id"
 CONF_ENROLL_SWITCH = "enroll_switch"
 CONF_ON_IRK = "on_irk"
@@ -38,7 +37,6 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_BLE_ID): cv.use_id(esp32_ble.ESP32BLE),
         cv.GenerateID(CONF_BLE_SERVER_ID): cv.use_id(esp32_ble_server.BLEServer),
         cv.Optional(CONF_AUTO_DISCONNECT, default=True): cv.boolean,
-        cv.Optional(CONF_BLE_NAME): cv.All(cv.string, cv.Length(max=20)),
         cv.Optional(CONF_ENROLL_SWITCH): switch.switch_schema(
             IrkCaptureEnrollSwitch,
             icon="mdi:bluetooth-connect",
@@ -69,8 +67,6 @@ async def to_code(config):
     cg.add(var.set_auto_disconnect(config[CONF_AUTO_DISCONNECT]))
 
     ble_parent = await cg.get_variable(config[CONF_BLE_ID])
-    if (name := config.get(CONF_BLE_NAME)) is not None:
-        cg.add(ble_parent.set_name(name))
     esp32_ble.register_gap_event_handler(ble_parent, var)
     esp32_ble.register_gatts_event_handler(ble_parent, var)
 

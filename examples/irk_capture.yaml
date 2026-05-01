@@ -20,12 +20,14 @@ wifi:
 
 external_components:
   - source:
-      type: local
-      path: ../components
+      type: git
+      url: https://github.com/Yiivgeny/esphome-irk-capture
+      ref: main
     components: [irk_capture]
 
 esp32_ble:
   id: ble_core
+  name: "IRK Capture"
   io_capability: none
   auth_req_mode: sc_bond
   max_connections: 1

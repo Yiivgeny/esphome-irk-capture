@@ -25,16 +25,36 @@ uv sync
 uv run esphome compile examples/irk_capture.yaml
 ```
 
+## Using from GitHub
+
+Add the component repository to `external_components`:
+
+```yaml
+external_components:
+  - source:
+      type: git
+      url: https://github.com/Yiivgeny/esphome-irk-capture
+      ref: main
+    components: [irk_capture]
+```
+
+ESPHome expects external components from git repositories to live under a
+`components/` directory, which matches this repository layout.
+
 ## IRK capture
 
 The component adds an ESPHome switch that temporarily exposes a BLE GATT server,
 accepts an incoming BLE pairing, and emits an automation event with the discovered IRK.
+
+The BLE device name is configured via `esp32_ble.name`. If omitted, ESPHome
+falls back to the node hostname. Keep the BLE name at 20 characters or less.
 
 Minimal YAML shape:
 
 ```yaml
 esp32_ble:
   id: ble_core
+  name: "IRK Capture"
   io_capability: none
   auth_req_mode: bond
   max_connections: 1
@@ -80,7 +100,7 @@ examples/
   irk_capture.yaml
 ```
 
-Reference local components in YAML with:
+For local development, reference the checked out repository directly:
 
 ```yaml
 external_components:

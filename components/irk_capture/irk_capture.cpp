@@ -32,14 +32,24 @@ void IrkCaptureVisibleSwitch::write_state(bool state) { this->parent_->set_visib
 void IrkCapture::setup() {
   this->ensure_service_();
   this->configure_security_profile_();
-  this->sync_advertising_mode_();
+
+  bool restored_visible = this->visible_;
+  bool restored_enabled = this->enabled_;
 
   if (this->visible_switch_ != nullptr) {
-    this->visible_switch_->publish_state(this->visible_);
+    auto initial_state = this->visible_switch_->get_initial_state_with_restore_mode();
+    if (initial_state.has_value()) {
+      restored_visible = initial_state.value();
+    }
   }
   if (this->enroll_switch_ != nullptr) {
-    this->enroll_switch_->publish_state(this->enabled_);
+    auto initial_state = this->enroll_switch_->get_initial_state_with_restore_mode();
+    if (initial_state.has_value()) {
+      restored_enabled = initial_state.value();
+    }
   }
+
+  this->apply_state_(restored_visible, restored_enabled);
 }
 
 void IrkCapture::loop() {
