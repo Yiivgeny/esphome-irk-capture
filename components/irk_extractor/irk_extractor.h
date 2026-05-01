@@ -52,6 +52,7 @@ class IrkExtractor : public Component, public Parented<esp32_ble_server::BLEServ
  protected:
   void ensure_service_();
   void sync_server_state_();
+  void sync_advertising_mode_();
   void disconnect_all_clients_();
   void handle_gatts_event_(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
   void handle_gap_event_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);

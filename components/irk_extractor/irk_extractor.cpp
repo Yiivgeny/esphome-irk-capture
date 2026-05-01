@@ -20,6 +20,7 @@ void IrkExtractorSwitch::write_state(bool state) { this->parent_->set_enabled(st
 
 void IrkExtractor::setup() {
   this->ensure_service_();
+  this->sync_advertising_mode_();
 
   if (this->enroll_switch_ != nullptr) {
     this->enroll_switch_->publish_state(this->enabled_);
@@ -57,13 +58,16 @@ void IrkExtractor::set_enabled(bool enabled) {
   this->enabled_ = enabled;
   ESP_LOGI(TAG, "%s IRK enrollment mode", enabled ? "Enabling" : "Disabling");
 
-  if (!enabled) {
+  if (enabled) {
+    this->emitted_irks_.clear();
+  } else {
     this->pending_irks_by_peer_.clear();
     if (this->auto_disconnect_) {
       this->disconnect_all_clients_();
     }
   }
 
+  this->sync_advertising_mode_();
   this->sync_server_state_();
 
   if (this->enroll_switch_ != nullptr) {
@@ -109,6 +113,21 @@ void IrkExtractor::sync_server_state_() {
     this->heart_rate_service_->stop();
     this->service_started_ = false;
   }
+}
+
+void IrkExtractor::sync_advertising_mode_() {
+  auto *server = this->get_parent();
+  if (server == nullptr) {
+    return;
+  }
+
+  auto *ble = server->get_parent();
+  if (ble == nullptr || !ble->is_active()) {
+    return;
+  }
+
+  ble->advertising_set_service_data_and_name({}, this->enabled_);
+  ESP_LOGI(TAG, "BLE advertising name %s in enroll mode", this->enabled_ ? "enabled" : "disabled");
 }
 
 void IrkExtractor::disconnect_all_clients_() {
@@ -257,13 +276,12 @@ bool IrkExtractor::lookup_irk_from_bond_db_(const esp_bd_addr_t address, std::st
 
 void IrkExtractor::emit_irk_(const std::string &irk, const std::string &address, const std::string &peer_address) {
   if (!this->emitted_irks_.insert(irk).second) {
-    ESP_LOGD(TAG, "IRK already emitted for %s", peer_address.c_str());
-    return;
-  }
-
-  ESP_LOGI(TAG, "Discovered IRK %s for %s", irk.c_str(), address.c_str());
-  for (auto *trigger : this->irk_triggers_) {
-    trigger->trigger(irk, address);
+    ESP_LOGI(TAG, "IRK for %s already emitted in this enroll session", peer_address.c_str());
+  } else {
+    ESP_LOGI(TAG, "Discovered IRK %s for %s", irk.c_str(), address.c_str());
+    for (auto *trigger : this->irk_triggers_) {
+      trigger->trigger(irk, address);
+    }
   }
 
   if (this->auto_disconnect_) {
@@ -277,6 +295,7 @@ void IrkExtractor::emit_irk_(const std::string &irk, const std::string &address,
   }
 
   this->enabled_ = false;
+  this->sync_advertising_mode_();
   this->sync_server_state_();
   if (this->enroll_switch_ != nullptr) {
     this->enroll_switch_->publish_state(false);
