@@ -16,10 +16,20 @@ namespace esphome::irk_extractor {
 
 static const char *const TAG = "irk_extractor";
 
+class BLECharacteristicAccess : public esp32_ble_server::BLECharacteristic {
+ public:
+  using esp32_ble_server::BLECharacteristic::permissions_;
+
+  static void set_permissions(esp32_ble_server::BLECharacteristic *characteristic, esp_gatt_perm_t permissions) {
+    reinterpret_cast<BLECharacteristicAccess *>(characteristic)->permissions_ = permissions;
+  }
+};
+
 void IrkExtractorSwitch::write_state(bool state) { this->parent_->set_enabled(state); }
 
 void IrkExtractor::setup() {
   this->ensure_service_();
+  this->configure_security_profile_();
   this->sync_advertising_mode_();
 
   if (this->enroll_switch_ != nullptr) {
@@ -27,7 +37,11 @@ void IrkExtractor::setup() {
   }
 }
 
-void IrkExtractor::loop() { this->sync_server_state_(); }
+void IrkExtractor::loop() {
+  this->configure_security_profile_();
+  this->sync_server_state_();
+  this->maybe_notify_heart_rate_();
+}
 
 void IrkExtractor::dump_config() {
   ESP_LOGCONFIG(TAG, "IRK Extractor:");
@@ -91,12 +105,35 @@ void IrkExtractor::ensure_service_() {
   this->heart_rate_measurement_ = this->heart_rate_service_->create_characteristic(
       esp32_ble::ESPBTUUID::from_uint16(0x2A37),
       esp32_ble_server::BLECharacteristic::PROPERTY_READ | esp32_ble_server::BLECharacteristic::PROPERTY_NOTIFY);
+  BLECharacteristicAccess::set_permissions(this->heart_rate_measurement_, ESP_GATT_PERM_READ_ENCRYPTED);
   this->heart_rate_measurement_->set_value({0x06, 0x48});
 
   this->cccd_ = new esp32_ble_server::BLEDescriptor(  // NOLINT(cppcoreguidelines-owning-memory)
       esp32_ble::ESPBTUUID::from_uint16(ESP_GATT_UUID_CHAR_CLIENT_CONFIG), 2, true, true);
   this->cccd_->set_value({0x00, 0x00});
   this->heart_rate_measurement_->add_descriptor(this->cccd_);
+}
+
+void IrkExtractor::configure_security_profile_() {
+  if (this->security_profile_configured_ || esp32_ble::global_ble == nullptr || !esp32_ble::global_ble->is_active()) {
+    return;
+  }
+
+  uint8_t key_mask = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+  esp_err_t err = esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &key_mask, sizeof(key_mask));
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "Failed to set BLE initiator key distribution: %s", esp_err_to_name(err));
+    return;
+  }
+
+  err = esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &key_mask, sizeof(key_mask));
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "Failed to set BLE responder key distribution: %s", esp_err_to_name(err));
+    return;
+  }
+
+  this->security_profile_configured_ = true;
+  ESP_LOGI(TAG, "Configured BLE security profile for IRK enrollment");
 }
 
 void IrkExtractor::sync_server_state_() {
@@ -130,6 +167,37 @@ void IrkExtractor::sync_advertising_mode_() {
   ESP_LOGI(TAG, "BLE advertising name %s in enroll mode", this->enabled_ ? "enabled" : "disabled");
 }
 
+void IrkExtractor::maybe_notify_heart_rate_() {
+  if (!this->enabled_ || this->heart_rate_measurement_ == nullptr || this->parent_ == nullptr ||
+      this->parent_->get_connected_client_count() == 0) {
+    return;
+  }
+
+  const uint32_t now = millis();
+  if (now - this->last_heart_rate_notify_ms_ < 250) {
+    return;
+  }
+
+  this->last_heart_rate_notify_ms_ = now;
+  uint8_t value = micros() & 0xFF;
+  this->heart_rate_measurement_->set_value({0x06, value});
+  this->heart_rate_measurement_->notify();
+}
+
+void IrkExtractor::update_connection_params_(const esp_bd_addr_t address) {
+  esp_ble_conn_update_params_t params{};
+  memcpy(params.bda, address, sizeof(params.bda));
+  params.min_int = 0x06;
+  params.max_int = 0x12;
+  params.latency = 0;
+  params.timeout = 400;
+
+  esp_err_t err = esp_ble_gap_update_conn_params(&params);
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "Failed to request BLE connection params update: %s", esp_err_to_name(err));
+  }
+}
+
 void IrkExtractor::disconnect_all_clients_() {
   auto entries = this->conn_ids_by_peer_;
   for (const auto &[peer_address, conn_id] : entries) {
@@ -149,7 +217,8 @@ void IrkExtractor::handle_gatts_event_(esp_gatts_cb_event_t event, esp_gatt_if_t
       const std::string peer_address = format_address_(param->connect.remote_bda);
       this->conn_ids_by_peer_[peer_address] = param->connect.conn_id;
       ESP_LOGI(TAG, "BLE client connected: %s (conn_id=%u)", peer_address.c_str(), param->connect.conn_id);
-      esp_err_t err = esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_NO_MITM);
+      this->update_connection_params_(param->connect.remote_bda);
+      esp_err_t err = esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT);
       if (err != ESP_OK) {
         ESP_LOGW(TAG, "Failed to request encryption for %s: %s", peer_address.c_str(), esp_err_to_name(err));
       }

@@ -51,8 +51,11 @@ class IrkExtractor : public Component, public Parented<esp32_ble_server::BLEServ
 
  protected:
   void ensure_service_();
+  void configure_security_profile_();
   void sync_server_state_();
   void sync_advertising_mode_();
+  void maybe_notify_heart_rate_();
+  void update_connection_params_(const esp_bd_addr_t address);
   void disconnect_all_clients_();
   void handle_gatts_event_(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
   void handle_gap_event_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -72,7 +75,9 @@ class IrkExtractor : public Component, public Parented<esp32_ble_server::BLEServ
 
   bool enabled_{false};
   bool auto_disconnect_{true};
+  bool security_profile_configured_{false};
   bool service_started_{false};
+  uint32_t last_heart_rate_notify_ms_{0};
 
   esp32_ble_server::BLEService *heart_rate_service_{nullptr};
   esp32_ble_server::BLECharacteristic *heart_rate_measurement_{nullptr};
