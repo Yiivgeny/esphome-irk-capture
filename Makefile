@@ -1,5 +1,5 @@
 PYTHON_VERSION ?= 3.11.13
-EXAMPLE ?= examples/irk_extractor.yaml
+EXAMPLE ?= examples/irk_capture.yaml
 
 .PHONY: sync compile lint
 

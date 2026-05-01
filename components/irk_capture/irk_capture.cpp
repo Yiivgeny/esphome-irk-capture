@@ -1,4 +1,4 @@
-#include "irk_extractor.h"
+#include "irk_capture.h"
 
 #include "esphome/core/log.h"
 
@@ -12,9 +12,9 @@
 #include <esp_gatt_defs.h>
 #include <esp_gatts_api.h>
 
-namespace esphome::irk_extractor {
+namespace esphome::irk_capture {
 
-static const char *const TAG = "irk_extractor";
+static const char *const TAG = "irk_capture";
 
 class BLECharacteristicAccess : public esp32_ble_server::BLECharacteristic {
  public:
@@ -25,11 +25,11 @@ class BLECharacteristicAccess : public esp32_ble_server::BLECharacteristic {
   }
 };
 
-void IrkExtractorEnrollSwitch::write_state(bool state) { this->parent_->set_enabled(state); }
+void IrkCaptureEnrollSwitch::write_state(bool state) { this->parent_->set_enabled(state); }
 
-void IrkExtractorVisibleSwitch::write_state(bool state) { this->parent_->set_visible(state); }
+void IrkCaptureVisibleSwitch::write_state(bool state) { this->parent_->set_visible(state); }
 
-void IrkExtractor::setup() {
+void IrkCapture::setup() {
   this->ensure_service_();
   this->configure_security_profile_();
   this->sync_advertising_mode_();
@@ -42,14 +42,14 @@ void IrkExtractor::setup() {
   }
 }
 
-void IrkExtractor::loop() {
+void IrkCapture::loop() {
   this->configure_security_profile_();
   this->sync_server_state_();
   this->maybe_notify_heart_rate_();
 }
 
-void IrkExtractor::dump_config() {
-  ESP_LOGCONFIG(TAG, "IRK Extractor:");
+void IrkCapture::dump_config() {
+  ESP_LOGCONFIG(TAG, "IRK Capture:");
   ESP_LOGCONFIG(TAG, "  Visible: %s", YESNO(this->visible_));
   ESP_LOGCONFIG(TAG, "  Enabled: %s", YESNO(this->enabled_));
   ESP_LOGCONFIG(TAG, "  Auto disconnect: %s", YESNO(this->auto_disconnect_));
@@ -57,22 +57,22 @@ void IrkExtractor::dump_config() {
   LOG_SWITCH("  ", "Enroll Switch", this->enroll_switch_);
 }
 
-float IrkExtractor::get_setup_priority() const { return setup_priority::AFTER_BLUETOOTH + 20.0f; }
+float IrkCapture::get_setup_priority() const { return setup_priority::AFTER_BLUETOOTH + 20.0f; }
 
-void IrkExtractor::gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+void IrkCapture::gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
   this->handle_gap_event_(event, param);
 }
 
-void IrkExtractor::gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
+void IrkCapture::gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
                                        esp_ble_gatts_cb_param_t *param) {
   this->handle_gatts_event_(event, gatts_if, param);
 }
 
-void IrkExtractor::set_enabled(bool enabled) { this->apply_state_(this->visible_ || enabled, enabled); }
+void IrkCapture::set_enabled(bool enabled) { this->apply_state_(this->visible_ || enabled, enabled); }
 
-void IrkExtractor::set_visible(bool visible) { this->apply_state_(visible, visible ? this->enabled_ : false); }
+void IrkCapture::set_visible(bool visible) { this->apply_state_(visible, visible ? this->enabled_ : false); }
 
-void IrkExtractor::apply_state_(bool visible, bool enabled) {
+void IrkCapture::apply_state_(bool visible, bool enabled) {
   if (enabled && !visible) {
     visible = true;
   }
@@ -123,7 +123,7 @@ void IrkExtractor::apply_state_(bool visible, bool enabled) {
   }
 }
 
-void IrkExtractor::ensure_service_() {
+void IrkCapture::ensure_service_() {
   if (this->heart_rate_service_ != nullptr) {
     return;
   }
@@ -148,7 +148,7 @@ void IrkExtractor::ensure_service_() {
   this->heart_rate_measurement_->add_descriptor(this->cccd_);
 }
 
-void IrkExtractor::configure_security_profile_() {
+void IrkCapture::configure_security_profile_() {
   if (this->security_profile_configured_ || esp32_ble::global_ble == nullptr || !esp32_ble::global_ble->is_active()) {
     return;
   }
@@ -170,7 +170,7 @@ void IrkExtractor::configure_security_profile_() {
   ESP_LOGI(TAG, "Configured BLE security profile for IRK enrollment");
 }
 
-void IrkExtractor::sync_server_state_() {
+void IrkCapture::sync_server_state_() {
   if (this->heart_rate_service_ == nullptr || !this->parent_->is_running()) {
     return;
   }
@@ -186,7 +186,7 @@ void IrkExtractor::sync_server_state_() {
   }
 }
 
-void IrkExtractor::sync_advertising_mode_() {
+void IrkCapture::sync_advertising_mode_() {
   auto *server = this->get_parent();
   if (server == nullptr) {
     return;
@@ -201,7 +201,7 @@ void IrkExtractor::sync_advertising_mode_() {
   ESP_LOGI(TAG, "BLE advertising name %s in visible mode", this->visible_ ? "enabled" : "disabled");
 }
 
-void IrkExtractor::maybe_notify_heart_rate_() {
+void IrkCapture::maybe_notify_heart_rate_() {
   if (!this->enabled_ || this->heart_rate_measurement_ == nullptr || this->parent_ == nullptr ||
       this->parent_->get_connected_client_count() == 0) {
     return;
@@ -218,7 +218,7 @@ void IrkExtractor::maybe_notify_heart_rate_() {
   this->heart_rate_measurement_->notify();
 }
 
-void IrkExtractor::update_connection_params_(const esp_bd_addr_t address) {
+void IrkCapture::update_connection_params_(const esp_bd_addr_t address) {
   esp_ble_conn_update_params_t params{};
   memcpy(params.bda, address, sizeof(params.bda));
   params.min_int = 0x06;
@@ -232,7 +232,7 @@ void IrkExtractor::update_connection_params_(const esp_bd_addr_t address) {
   }
 }
 
-void IrkExtractor::disconnect_all_clients_() {
+void IrkCapture::disconnect_all_clients_() {
   auto entries = this->conn_ids_by_peer_;
   for (const auto &[peer_address, conn_id] : entries) {
     esp_err_t err = esp_ble_gatts_close(this->parent_->get_gatts_if(), conn_id);
@@ -242,7 +242,7 @@ void IrkExtractor::disconnect_all_clients_() {
   }
 }
 
-void IrkExtractor::handle_gatts_event_(esp_gatts_cb_event_t event, esp_gatt_if_t, esp_ble_gatts_cb_param_t *param) {
+void IrkCapture::handle_gatts_event_(esp_gatts_cb_event_t event, esp_gatt_if_t, esp_ble_gatts_cb_param_t *param) {
   switch (event) {
     case ESP_GATTS_CONNECT_EVT: {
       if (!this->enabled_) {
@@ -270,7 +270,7 @@ void IrkExtractor::handle_gatts_event_(esp_gatts_cb_event_t event, esp_gatt_if_t
   }
 }
 
-void IrkExtractor::handle_gap_event_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+void IrkCapture::handle_gap_event_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
   if (!this->enabled_) {
     return;
   }
@@ -292,7 +292,7 @@ void IrkExtractor::handle_gap_event_(esp_gap_ble_cb_event_t event, esp_ble_gap_c
   }
 }
 
-void IrkExtractor::handle_pid_key_(const esp_ble_key_t &ble_key) {
+void IrkCapture::handle_pid_key_(const esp_ble_key_t &ble_key) {
   const std::string peer_address = format_address_(ble_key.bd_addr);
   const std::string irk = format_irk_(ble_key.p_key_value.pid_key.irk);
   const std::string identity_address = format_address_(ble_key.p_key_value.pid_key.static_addr);
@@ -305,7 +305,7 @@ void IrkExtractor::handle_pid_key_(const esp_ble_key_t &ble_key) {
   ESP_LOGI(TAG, "Received peer IRK for %s", peer_address.c_str());
 }
 
-void IrkExtractor::handle_auth_complete_(const esp_ble_auth_cmpl_t &auth_cmpl) {
+void IrkCapture::handle_auth_complete_(const esp_ble_auth_cmpl_t &auth_cmpl) {
   const std::string peer_address = format_address_(auth_cmpl.bd_addr);
   if (!auth_cmpl.success) {
     ESP_LOGW(TAG, "BLE pairing failed for %s, reason=0x%02x", peer_address.c_str(), auth_cmpl.fail_reason);
@@ -331,14 +331,14 @@ void IrkExtractor::handle_auth_complete_(const esp_ble_auth_cmpl_t &auth_cmpl) {
   this->emit_irk_(irk, identity_address, peer_address);
 }
 
-std::string IrkExtractor::format_address_(const esp_bd_addr_t address) {
+std::string IrkCapture::format_address_(const esp_bd_addr_t address) {
   char buffer[18];
   snprintf(buffer, sizeof(buffer), "%02X:%02X:%02X:%02X:%02X:%02X", address[0], address[1], address[2], address[3],
            address[4], address[5]);
   return buffer;
 }
 
-std::string IrkExtractor::format_irk_(const uint8_t *irk) {
+std::string IrkCapture::format_irk_(const uint8_t *irk) {
   static const char hex_digits[] = "0123456789abcdef";
   std::string output;
   output.reserve(32);
@@ -350,7 +350,7 @@ std::string IrkExtractor::format_irk_(const uint8_t *irk) {
   return output;
 }
 
-bool IrkExtractor::lookup_irk_from_bond_db_(const esp_bd_addr_t address, std::string *irk, std::string *identity_address) {
+bool IrkCapture::lookup_irk_from_bond_db_(const esp_bd_addr_t address, std::string *irk, std::string *identity_address) {
   int device_count = esp_ble_get_bond_device_num();
   if (device_count <= 0) {
     return false;
@@ -377,7 +377,7 @@ bool IrkExtractor::lookup_irk_from_bond_db_(const esp_bd_addr_t address, std::st
   return false;
 }
 
-void IrkExtractor::emit_irk_(const std::string &irk, const std::string &address, const std::string &peer_address) {
+void IrkCapture::emit_irk_(const std::string &irk, const std::string &address, const std::string &peer_address) {
   if (!this->emitted_irks_.insert(irk).second) {
     ESP_LOGI(TAG, "IRK for %s already emitted in this enroll session", peer_address.c_str());
   } else {
@@ -392,7 +392,7 @@ void IrkExtractor::emit_irk_(const std::string &irk, const std::string &address,
     if (it != this->conn_ids_by_peer_.end()) {
       esp_err_t err = esp_ble_gatts_close(this->parent_->get_gatts_if(), it->second);
       if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to disconnect %s after IRK extraction: %s", peer_address.c_str(), esp_err_to_name(err));
+        ESP_LOGW(TAG, "Failed to disconnect %s after IRK capturing: %s", peer_address.c_str(), esp_err_to_name(err));
       }
     }
   }
@@ -400,6 +400,6 @@ void IrkExtractor::emit_irk_(const std::string &irk, const std::string &address,
   this->apply_state_(this->visible_, false);
 }
 
-}  // namespace esphome::irk_extractor
+}  // namespace esphome::irk_capture
 
 #endif

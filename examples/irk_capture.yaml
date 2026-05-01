@@ -1,6 +1,6 @@
 esphome:
-  name: irk-extractor-dev
-  friendly_name: IRK Extractor Dev
+  name: irk-capture-dev
+  friendly_name: IRK Capture Dev
 
 esp32:
   board: m5stack-atom
@@ -22,7 +22,7 @@ external_components:
   - source:
       type: local
       path: ../components
-    components: [irk_extractor]
+    components: [irk_capture]
 
 esp32_ble:
   id: ble_core
@@ -33,12 +33,12 @@ esp32_ble:
 esp32_ble_server:
   id: ble_server
   manufacturer: "ESPHome"
-  model: "IRK Extractor"
+  model: "IRK Capture"
   appearance: 0x4142
   max_clients: 1
 
-irk_extractor:
-  id: irk_extractor_component
+irk_capture:
+  id: irk_capture_component
   ble_id: ble_core
   ble_server_id: ble_server
   visible_switch:

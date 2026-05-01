@@ -1,7 +1,7 @@
 [project]
-name = "esphome-irk-extractor"
+name = "esphome-irk-capture"
 version = "0.1.0"
-description = "ESPHome external component for extracting BLE Identity Resolving Keys (IRKs)."
+description = "ESPHome external component for capturing BLE Identity Resolving Keys (IRKs)."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
