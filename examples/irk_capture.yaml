@@ -10,6 +10,8 @@ esp32:
 logger:
 
 api:
+  # Home Assistant event calls require "Allow the device to perform Home Assistant actions"
+  # to be enabled for this device in the ESPHome integration options.
 
 ota:
   - platform: esphome
@@ -25,9 +27,16 @@ external_components:
       ref: main
     components: [irk_capture]
 
+text_sensor:
+  - platform: template
+    name: "Last IRK"
+    id: last_irk_text
+    icon: "mdi:key-wireless"
+    update_interval: never
+
 esp32_ble:
   id: ble_core
-  name: "IRK Capture"
+  name: "irk"
   io_capability: none
   auth_req_mode: sc_bond
   max_connections: 1
@@ -49,6 +58,17 @@ irk_capture:
     name: "BLE Enroll"
   on_irk:
     then:
+      - text_sensor.template.publish:
+          id: last_irk_text
+          state: !lambda "return irk;"
+      - homeassistant.event:
+          event: esphome.irk_captured
+          data_template:
+            irk: "{{ irk_value }}"
+            mac: "{{ mac_value }}"
+          variables:
+            irk_value: !lambda "return irk;"
+            mac_value: !lambda "return address;"
       - logger.log:
           format: "Discovered IRK %s for %s"
           args:
