@@ -1,0 +1,11 @@
+.venv/
+.DS_Store
+.esphome/
+.idea/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+build/
+dist/
+config/
+**/.esphome/

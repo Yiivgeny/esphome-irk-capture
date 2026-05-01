@@ -1,0 +1,51 @@
+esphome:
+  name: irk-extractor-dev
+  friendly_name: IRK Extractor Dev
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "CHANGE_ME"
+  password: "CHANGE_ME"
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [irk_extractor]
+
+esp32_ble:
+  id: ble_core
+  io_capability: none
+  auth_req_mode: bond
+  max_connections: 1
+
+esp32_ble_server:
+  id: ble_server
+  manufacturer: "ESPHome"
+  model: "IRK Extractor"
+  max_clients: 1
+
+irk_extractor:
+  id: irk_extractor_component
+  ble_id: ble_core
+  ble_server_id: ble_server
+  enroll_switch:
+    name: "BLE Enroll"
+  on_irk:
+    then:
+      - logger.log:
+          format: "Discovered IRK %s for %s"
+          args:
+            - irk.c_str()
+            - address.c_str()

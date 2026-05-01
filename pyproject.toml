@@ -1,0 +1,21 @@
+[project]
+name = "esphome-irk-extractor"
+version = "0.1.0"
+description = "Workspace for developing external components against the latest stable ESPHome release."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "esphome==2026.4.3",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.9,<0.12.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

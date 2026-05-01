@@ -1,0 +1,84 @@
+# ESPHome external component workspace
+
+Workspace for developing external ESPHome components against the latest stable release.
+
+As of 2026-05-01, the latest stable ESPHome release is `2026.4.3`:
+- GitHub releases: <https://github.com/esphome/esphome/releases>
+- Developer docs: <https://developers.esphome.io/contributing/development-environment/>
+
+## What is included
+
+- `uv`-managed Python environment pinned to Python `3.11.13`
+- ESPHome pinned to `2026.4.3`
+- working `irk_extractor` external component in `components/irk_extractor/`
+- example config in `examples/irk_extractor.yaml`
+
+## Quick start
+
+```bash
+uv sync
+uv run esphome compile examples/irk_extractor.yaml
+```
+
+## IRK extractor
+
+The component adds an ESPHome switch that temporarily exposes a BLE GATT server,
+accepts an incoming BLE pairing, and emits an automation event with the discovered IRK.
+
+Minimal YAML shape:
+
+```yaml
+esp32_ble:
+  id: ble_core
+  io_capability: none
+  auth_req_mode: bond
+  max_connections: 1
+
+esp32_ble_server:
+  id: ble_server
+  manufacturer: "ESPHome"
+  model: "IRK Extractor"
+  max_clients: 1
+
+irk_extractor:
+  id: irk_extractor_component
+  ble_id: ble_core
+  ble_server_id: ble_server
+  enroll_switch:
+    name: "BLE Enroll"
+  on_irk:
+    then:
+      - logger.log:
+          format: "Discovered IRK %s for %s"
+          args: [irk.c_str(), address.c_str()]
+```
+
+Behavior:
+
+- turning the `enroll_switch` on starts advertising a connectable BLE service
+- on incoming connection, the component requests BLE encryption and bonding
+- when the peer shares its Identity Resolving Key, `on_irk` fires with:
+  - `irk`: 32-char lowercase hex IRK
+  - `address`: identity/static BLE address when available
+- after success, enrollment mode turns itself off and the client is disconnected
+
+## Project layout
+
+```text
+components/
+  irk_extractor/
+    __init__.py
+    irk_extractor.h
+    irk_extractor.cpp
+examples/
+  irk_extractor.yaml
+```
+
+Reference local components in YAML with:
+
+```yaml
+external_components:
+  - source:
+      type: local
+      path: ../components
+```
