@@ -1,16 +1,21 @@
-# ESPHome external component workspace
+# ESPHome IRK extractor component
 
-Workspace for developing external ESPHome components against the latest stable release.
+External ESPHome component for extracting a peer BLE Identity Resolving Key (IRK)
+through the ESPHome BLE stack.
+
+The component code is inspired by the implementation in
+[ESPresense](https://github.com/ESPresense/ESPresense) and provides similar
+BLE Enroll flow for capturing a peer IRK.
 
 As of 2026-05-01, the latest stable ESPHome release is `2026.4.3`:
 - GitHub releases: <https://github.com/esphome/esphome/releases>
 - Developer docs: <https://developers.esphome.io/contributing/development-environment/>
 
-## What is included
+## Repository contents
 
 - `uv`-managed Python environment pinned to Python `3.11.13`
 - ESPHome pinned to `2026.4.3`
-- working `irk_extractor` external component in `components/irk_extractor/`
+- `irk_extractor` external component in `components/irk_extractor/`
 - example config in `examples/irk_extractor.yaml`
 
 ## Quick start
@@ -56,6 +61,7 @@ irk_extractor:
 Behavior:
 
 - turning the `enroll_switch` on starts advertising a connectable BLE service
+- turning the optional `visible_switch` on exposes the BLE service without enabling IRK enrollment
 - on incoming connection, the component requests BLE encryption and bonding
 - when the peer shares its Identity Resolving Key, `on_irk` fires with:
   - `irk`: 32-char lowercase hex IRK
