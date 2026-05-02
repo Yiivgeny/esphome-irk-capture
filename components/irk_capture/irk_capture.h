@@ -81,7 +81,6 @@ class IrkCapture : public Component, public Parented<esp32_ble_server::BLEServer
   bool auto_disable_{true};
   bool auto_disconnect_{true};
   bool security_profile_configured_{false};
-  bool service_started_{false};
   bool service_state_transition_pending_{false};
   bool advertising_mode_dirty_{true};
   bool advertising_mode_initialized_{false};

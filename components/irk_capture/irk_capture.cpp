@@ -153,15 +153,15 @@ void IrkCapture::sync_server_state_() {
   }
 
   if (this->enabled_) {
-    if (!this->service_started_ && !this->heart_rate_service_->is_running() && !this->heart_rate_service_->is_starting()) {
+    if (!this->heart_rate_service_->is_running() && !this->heart_rate_service_->is_starting()) {
       this->heart_rate_service_->start();
-      this->service_started_ = true;
       this->service_state_transition_pending_ = true;
     }
-  } else if (this->service_started_) {
+  } else if (this->heart_rate_service_->is_running() || this->heart_rate_service_->is_starting()) {
     this->heart_rate_service_->stop();
-    this->service_started_ = false;
     this->service_state_transition_pending_ = true;
+  } else {
+    this->service_state_transition_pending_ = false;
   }
 }
 
@@ -177,10 +177,10 @@ bool IrkCapture::is_service_state_settled_() const {
   }
 
   if (this->enabled_) {
-    return this->service_started_ && this->heart_rate_service_->is_running();
+    return this->heart_rate_service_->is_running();
   }
 
-  return !this->service_started_ && !this->heart_rate_service_->is_running() && !this->heart_rate_service_->is_starting();
+  return !this->heart_rate_service_->is_running() && !this->heart_rate_service_->is_starting();
 }
 
 void IrkCapture::maybe_sync_advertising_mode_() {
