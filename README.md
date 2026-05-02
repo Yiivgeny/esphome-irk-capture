@@ -7,17 +7,15 @@ The component code is inspired by the implementation in
 [ESPresense](https://github.com/ESPresense/ESPresense) and provides similar
 BLE Enroll flow for capturing a peer IRK.
 
-As of 2026-05-01, the latest stable ESPHome release is `2026.4.3`:
-- GitHub releases: <https://github.com/esphome/esphome/releases>
-- Developer docs: <https://developers.esphome.io/contributing/development-environment/>
-
 ## Repository contents
 
-- `uv`-managed Python environment pinned to Python `3.11.13`
-- ESPHome pinned to `2026.4.3`
+- `uv`-managed Python environment compatible with Python `3.11-3.14`
+- ESPHome compatibility range `2026.4.x`, tested with `2026.4.3`
 - `irk_capture` external component in `components/irk_capture/`
 - minimal example config in `examples/irk_capture.yaml`
 - `M5Atom Lite` example config in `examples/m5atom-lite.yaml`
+
+The exact tested dependency set is captured in `uv.lock`.
 
 ## Quick start
 
@@ -63,7 +61,7 @@ esp32_ble:
   id: ble_core
   name: "IRK Capture"
   io_capability: none
-  auth_req_mode: bond
+  auth_req_mode: sc_bond
   max_connections: 1
 
 esp32_ble_server:
