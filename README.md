@@ -16,13 +16,20 @@ As of 2026-05-01, the latest stable ESPHome release is `2026.4.3`:
 - `uv`-managed Python environment pinned to Python `3.11.13`
 - ESPHome pinned to `2026.4.3`
 - `irk_capture` external component in `components/irk_capture/`
-- example config in `examples/irk_capture.yaml`
+- minimal example config in `examples/irk_capture.yaml`
+- `M5Atom Lite` example config in `examples/m5atom-lite.yaml`
 
 ## Quick start
 
 ```bash
 uv sync
 uv run esphome compile examples/irk_capture.yaml
+```
+
+For the `M5Atom Lite` hardware example:
+
+```bash
+uv run esphome compile examples/m5atom_lite.yaml
 ```
 
 ## Using from GitHub
@@ -99,6 +106,7 @@ components/
     irk_capture.cpp
 examples/
   irk_capture.yaml
+  m5atom-lite.yaml
 ```
 
 For local development, reference the checked out repository directly:

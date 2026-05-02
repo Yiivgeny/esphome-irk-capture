@@ -1,0 +1,188 @@
+esphome:
+  name: irk-capture-dev
+  friendly_name: IRK Capture Dev
+  on_boot:
+    priority: -10
+    then:
+      - script.execute: update_status_led
+
+esp32:
+  board: m5stack-atom
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  # Home Assistant event calls require "Allow the device to perform Home Assistant actions"
+  # to be enabled for this device in the ESPHome integration options.
+  on_client_connected:
+    - script.execute: update_status_led
+  on_client_disconnected:
+    - script.execute: update_status_led
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  on_connect:
+    - script.execute: update_status_led
+  on_disconnect:
+    - script.execute: update_status_led
+
+esp32_ble:
+  id: ble_core
+  name: "IRK Capture"
+  io_capability: none
+  auth_req_mode: sc_bond
+  max_connections: 1
+
+esp32_ble_server:
+  id: ble_server
+  manufacturer: "ESPHome"
+  model: "IRK Capture"
+  appearance: 0x4142
+  max_clients: 1
+
+external_components:
+  - source:
+     type: git
+     url: https://github.com/Yiivgeny/esphome-irk-capture
+     ref: main
+    components: [irk_capture]
+
+text_sensor:
+  - platform: template
+    name: "Last IRK"
+    id: last_irk_text
+    icon: "mdi:key-wireless"
+    update_interval: never
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+  - platform: gpio
+    internal: true
+    name: "Atom Button"
+    id: atom_button
+    pin:
+      number: GPIO39
+      mode: INPUT
+      inverted: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      - switch.toggle: ble_enroll_switch
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 60s
+
+button:
+  - platform: restart
+    name: "Restart"
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: atom_status_led
+    internal: true
+    pin: GPIO27
+    num_leds: 1
+    chipset: SK6812
+    rgb_order: GRB
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
+    effects:
+      - strobe:
+          name: "Blue Strobe"
+          colors:
+            - state: true
+              blue: 100%
+              brightness: 100%
+              duration: 50ms
+            - state: false
+              duration: 50ms
+
+script:
+  - id: update_status_led
+    mode: restart
+    then:
+      - if:
+          condition:
+            api.connected:
+          then:
+            - if:
+                condition:
+                  switch.is_on: ble_enroll_switch
+                then:
+                  - light.turn_on:
+                      id: atom_status_led
+                      effect: none
+                      red: 0%
+                      green: 0%
+                      blue: 100%
+                      brightness: 30%
+                else:
+                  - light.turn_on:
+                      id: atom_status_led
+                      effect: none
+                      red: 0%
+                      green: 100%
+                      blue: 0%
+                      brightness: 30%
+          else:
+            - light.turn_on:
+                id: atom_status_led
+                effect: none
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 100%
+  - id: flash_irk_found
+    mode: restart
+    then:
+      - light.turn_on:
+          id: atom_status_led
+          effect: "Blue Strobe"
+      - delay: 1s
+      - script.execute: update_status_led
+
+irk_capture:
+  id: irk_capture_component
+  ble_id: ble_core
+  ble_server_id: ble_server
+  auto_disable: false
+  auto_disconnect: true
+  enroll_switch:
+    id: ble_enroll_switch
+    name: "BLE Enroll"
+    on_turn_on:
+      - script.execute: update_status_led
+    on_turn_off:
+      - script.execute: update_status_led
+  on_irk:
+    then:
+      - text_sensor.template.publish:
+          id: last_irk_text
+          state: !lambda "return irk;"
+      - script.execute: flash_irk_found
+      - homeassistant.event:
+          event: esphome.irk_captured
+          data_template:
+            irk: "{{ irk_value }}"
+            mac: "{{ mac_value }}"
+          variables:
+            irk_value: !lambda "return irk;"
+            mac_value: !lambda "return address;"
+      - logger.log:
+          format: "Discovered IRK %s for %s"
+          args:
+            - irk.c_str()
+            - address.c_str()
