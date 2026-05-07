@@ -29,6 +29,10 @@ The component has been tested with the following peer platforms:
 - watchOS 26
 - Android 10
 
+It has also been tested together with Home Assistant's
+[`bluetooth_proxy`](https://www.home-assistant.io/integrations/bluetooth_proxy/)
+integration.
+
 ## Installation
 
 ### From GitHub
