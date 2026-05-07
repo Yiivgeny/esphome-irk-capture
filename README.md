@@ -8,6 +8,11 @@ and emits an `on_irk` automation when the peer IRK is discovered. The
 implementation is inspired by the BLE enroll flow used in
 [ESPresense](https://github.com/ESPresense/ESPresense).
 
+The primary use case for this component is enrolling devices for Home
+Assistant's
+[Private BLE Device](https://www.home-assistant.io/integrations/private_ble_device/)
+integration.
+
 ## Requirements
 
 - ESP32 target
@@ -103,7 +108,8 @@ safe default.
 
 ### `on_irk` automation arguments
 
-- `irk`: 32-character lowercase hexadecimal IRK string.
+- `irk`: 32-character lowercase hexadecimal IRK string with bytes reversed
+  from the little-endian value reported by the BLE stack.
 - `address`: Peer identity or static BLE address when available.
 
 ## How It Works

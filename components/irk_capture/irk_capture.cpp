@@ -377,7 +377,9 @@ std::string IrkCapture::format_irk_(const uint8_t *irk) {
   static const char hex_digits[] = "0123456789abcdef";
   std::string output;
   output.reserve(32);
-  for (int i = 0; i < 16; i++) {
+  // ESP-IDF exposes the IRK bytes in little-endian order; reverse them to
+  // match the canonical text form expected by ESPresense and Home Assistant.
+  for (int i = 15; i >= 0; i--) {
     const auto c = irk[i];
     output.push_back(hex_digits[c >> 4]);
     output.push_back(hex_digits[c & 0x0F]);
