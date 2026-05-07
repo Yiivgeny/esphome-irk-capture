@@ -1,38 +1,34 @@
-# ESPHome IRK capture component
+# ESPHome IRK Capture
 
-External ESPHome component for capturing a peer BLE Identity Resolving Key (IRK)
-through the ESPHome BLE stack.
+External ESPHome component for capturing a peer BLE Identity Resolving Key
+(IRK) during BLE pairing and bonding on ESP32.
 
-The component code is inspired by the implementation in
-[ESPresense](https://github.com/ESPresense/ESPresense) and provides similar
-BLE Enroll flow for capturing a peer IRK.
+The component exposes a temporary BLE enrollment mode through an ESPHome switch
+and emits an `on_irk` automation when the peer IRK is discovered. The
+implementation is inspired by the BLE enroll flow used in
+[ESPresense](https://github.com/ESPresense/ESPresense).
 
-## Repository contents
+## Requirements
 
-- `uv`-managed Python environment compatible with Python `3.11-3.14`
-- ESPHome compatibility range `2026.4.x`, tested with `2026.4.3`
-- `irk_capture` external component in `components/irk_capture/`
-- minimal example config in `examples/irk_capture.yaml`
-- `M5Atom Lite` example config in `examples/m5atom-lite.yaml`
+- ESP32 target
+- `framework: esp-idf`
+- ESPHome `2026.4.x` compatibility, tested with `2026.4.3`
+- `esp32_ble` and `esp32_ble_server` enabled in the node configuration
 
-The exact tested dependency set is captured in `uv.lock`.
+## Tested With
 
-## Quick start
+The component has been tested with the following peer platforms:
 
-```bash
-uv sync
-uv run esphome compile examples/irk_capture.yaml
-```
+- iOS 15
+- iOS 26
+- watchOS 26
+- Android 10
 
-For the `M5Atom Lite` hardware example:
+## Installation
 
-```bash
-uv run esphome compile examples/m5atom_lite.yaml
-```
+### From GitHub
 
-## Using from GitHub
-
-Add the component repository to `external_components`:
+Add the repository as an external component source:
 
 ```yaml
 external_components:
@@ -43,18 +39,22 @@ external_components:
     components: [irk_capture]
 ```
 
-ESPHome expects external components from git repositories to live under a
-`components/` directory, which matches this repository layout.
+ESPHome expects git-based external components to live under a `components/`
+directory, which matches this repository layout.
 
-## IRK capture
+### From a local checkout
 
-The component adds an ESPHome switch that temporarily exposes a BLE GATT server,
-accepts an incoming BLE pairing, and emits an automation event with the discovered IRK.
+For local development, point ESPHome at the checked out repository:
 
-The BLE device name is configured via `esp32_ble.name`. If omitted, ESPHome
-falls back to the node hostname. Keep the BLE name at 20 characters or less.
+```yaml
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [irk_capture]
+```
 
-Minimal YAML shape:
+## Minimal Configuration
 
 ```yaml
 esp32_ble:
@@ -83,18 +83,71 @@ irk_capture:
           args: [irk.c_str(), address.c_str()]
 ```
 
-Behavior:
+The BLE device name is taken from `esp32_ble.name`. If omitted, ESPHome falls
+back to the node hostname. Keeping the BLE name at 20 characters or less is a
+safe default.
 
-- turning the `enroll_switch` on starts advertising a connectable BLE service
-- on incoming connection, the component requests BLE encryption and bonding
-- when the peer shares its Identity Resolving Key, `on_irk` fires with:
-  - `irk`: 32-char lowercase hex IRK
-  - `address`: identity/static BLE address when available
-- after success, enrollment mode turns itself off and the client is disconnected by default
-- `auto_disable` controls whether enroll mode turns itself off after a successful IRK capture
-- `auto_disconnect` controls whether the active BLE client is disconnected automatically
+## Configuration Reference
 
-## Project layout
+### `irk_capture`
+
+- `id`: Component ID.
+- `ble_id`: ID of the `esp32_ble` component. Required.
+- `ble_server_id`: ID of the `esp32_ble_server` component. Required.
+- `auto_disable`: Disable enrollment mode automatically after a successful IRK
+  capture. Defaults to `true`.
+- `auto_disconnect`: Disconnect the active BLE client automatically after IRK
+  capture. Defaults to `true`.
+- `enroll_switch`: Optional switch that enables and disables enrollment mode.
+- `on_irk`: Optional automation triggered when an IRK is captured.
+
+### `on_irk` automation arguments
+
+- `irk`: 32-character lowercase hexadecimal IRK string.
+- `address`: Peer identity or static BLE address when available.
+
+## How It Works
+
+1. Turn on the enrollment switch.
+2. The node starts advertising a connectable BLE service.
+3. A peer connects and the component requests encryption and bonding.
+4. When the peer provides an identity key, the component resolves the IRK and
+   fires `on_irk`.
+5. After a successful capture, the component can automatically disconnect the
+   client and disable enrollment mode.
+
+Within a single enrollment session, duplicate IRKs are emitted only once.
+
+## Examples
+
+- [`examples/irk_capture.yaml`](/Users/evgeny/Projects/esphome-irk-extractor/examples/irk_capture.yaml):
+  minimal configuration
+- [`examples/m5atom_lite.yaml`](/Users/evgeny/Projects/esphome-irk-extractor/examples/m5atom_lite.yaml):
+  M5Atom Lite example with button control, status LED, and Home Assistant event
+
+## Limitations and Notes
+
+- ESP32 only.
+- Designed for IRK enrollment flow, not as a general-purpose BLE service.
+- A peer must support pairing and bonding in a way that exposes the identity
+  resolving key.
+- Some peers may complete pairing without yielding a usable IRK, in which case
+  `on_irk` will not fire.
+- The component relies on `esp32_ble` and `esp32_ble_server` behavior in
+  ESPHome `2026.4.x`.
+
+## Development
+
+The repository uses an `uv`-managed Python environment. The exact tested
+dependency set is recorded in `uv.lock`.
+
+```bash
+uv sync
+uv run esphome compile examples/irk_capture.yaml
+uv run esphome compile examples/m5atom_lite.yaml
+```
+
+## Repository Layout
 
 ```text
 components/
@@ -104,14 +157,5 @@ components/
     irk_capture.cpp
 examples/
   irk_capture.yaml
-  m5atom-lite.yaml
-```
-
-For local development, reference the checked out repository directly:
-
-```yaml
-external_components:
-  - source:
-      type: local
-      path: ../components
+  m5atom_lite.yaml
 ```
