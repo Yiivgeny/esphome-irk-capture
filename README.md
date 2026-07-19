@@ -17,7 +17,7 @@ integration.
 
 - ESP32 target
 - `framework: esp-idf`
-- ESPHome `2026.4.x` compatibility, tested with `2026.4.3`
+- ESPHome `2026.7.x` compatibility, tested with `2026.7.0`
 - `esp32_ble` and `esp32_ble_server` enabled in the node configuration
 
 ## Tested With
@@ -144,7 +144,7 @@ Within a single enrollment session, duplicate IRKs are emitted only once.
 - Some peers may complete pairing without yielding a usable IRK, in which case
   `on_irk` will not fire.
 - The component relies on `esp32_ble` and `esp32_ble_server` behavior in
-  ESPHome `2026.4.x`.
+  ESPHome `2026.7.x`.
 
 ## Development
 

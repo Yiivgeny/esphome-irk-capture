@@ -16,15 +16,6 @@ namespace esphome::irk_capture {
 
 static const char *const TAG = "irk_capture";
 
-class BLECharacteristicAccess : public esp32_ble_server::BLECharacteristic {
- public:
-  using esp32_ble_server::BLECharacteristic::permissions_;
-
-  static void set_permissions(esp32_ble_server::BLECharacteristic *characteristic, esp_gatt_perm_t permissions) {
-    reinterpret_cast<BLECharacteristicAccess *>(characteristic)->permissions_ = permissions;
-  }
-};
-
 void IrkCaptureEnrollSwitch::write_state(bool state) { this->parent_->set_enabled(state); }
 
 void IrkCapture::setup() {
@@ -116,7 +107,6 @@ void IrkCapture::ensure_service_() {
   this->heart_rate_measurement_ = this->heart_rate_service_->create_characteristic(
       esp32_ble::ESPBTUUID::from_uint16(0x2A37),
       esp32_ble_server::BLECharacteristic::PROPERTY_READ | esp32_ble_server::BLECharacteristic::PROPERTY_NOTIFY);
-  BLECharacteristicAccess::set_permissions(this->heart_rate_measurement_, ESP_GATT_PERM_READ_ENCRYPTED);
   this->heart_rate_measurement_->set_value({0x06, 0x48});
 
   this->cccd_ = new esp32_ble_server::BLEDescriptor(  // NOLINT(cppcoreguidelines-owning-memory)
